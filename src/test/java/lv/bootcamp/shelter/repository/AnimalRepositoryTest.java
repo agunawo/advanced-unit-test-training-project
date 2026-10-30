@@ -7,16 +7,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Ticket: ANIMAL-3 (see README).
- * findByStatus_shouldReturnOnlyMatchingAnimals is already implemented —
- * mirror this pattern (and AdopterRepositoryTest's constraint test) to add
- * the second method yourself. You'll also need to create
- * AdoptionRecordRepositoryTest from scratch (see README).
- */
 @DataJpaTest
 class AnimalRepositoryTest {
 
@@ -36,6 +31,22 @@ class AnimalRepositoryTest {
 
         assertThat(available).hasSize(1);
         assertThat(available.getFirst().getName()).isEqualTo("Rex");
+    }
+
+    // ---------- ANIMAL-3: уникальность microchipId ----------
+    @Test
+    void save_shouldFailWhenMicrochipIdIsDuplicated() {
+        Animal first = newAnimal("Rex", AnimalType.DOG, AnimalStatus.AVAILABLE);
+        first.setMicrochipId("CHIP-123");
+        entityManager.persist(first);
+        entityManager.flush();
+
+        assertThatThrownBy(() -> {
+            Animal duplicate = newAnimal("Max", AnimalType.DOG, AnimalStatus.AVAILABLE);
+            duplicate.setMicrochipId("CHIP-123");
+            animalRepository.save(duplicate);
+            entityManager.flush();
+        }).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private Animal newAnimal(String name, AnimalType type, AnimalStatus status) {
